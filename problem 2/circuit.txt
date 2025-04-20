@@ -1,0 +1,19 @@
+# RLC Circuit Description for Problem 5
+# Lines starting with # are comments
+
+TITLE, "RLC Circuit Example"
+
+# Node positions: name, x, y
+NODE, 1, 50, 150
+NODE, 2, 150, 150
+NODE, 3, 250, 150
+NODE, 4, 350, 150
+
+# Elements: type, node1, node2
+ELEMENT, VOLTAGE_SOURCE, 1, 2
+ELEMENT, INDUCTOR, 2, 3
+ELEMENT, RESISTOR, 3, 4
+ELEMENT, CAPACITOR, 3, 4
+
+# Wires to close the loop
+WIRE, 4, 1
