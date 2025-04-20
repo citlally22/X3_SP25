@@ -4,10 +4,10 @@
 TITLE, "RLC Circuit Example"
 
 # Node positions: name, x, y
-NODE, 1, 50, 150
-NODE, 2, 150, 150
-NODE, 3, 250, 150
-NODE, 4, 350, 150
+NODE, 1, 50, 100
+NODE, 2, 150, 100
+NODE, 3, 150, 200
+NODE, 4, 50, 200
 
 # Elements: type, node1, node2
 ELEMENT, VOLTAGE_SOURCE, 1, 2
