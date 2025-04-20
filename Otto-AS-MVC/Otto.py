@@ -61,59 +61,54 @@ class ottoCycleModel():
     
 class ottoCycleController():
     def __init__(self, model=None, ax=None):
-        self.model=ottoCycleModel() if model is None else model
-        self.view=ottoCycleView()
+        self.model = ottoCycleModel() if model is None else model
+        self.view = ottoCycleView()
         self.view.ax = ax
 
-    #region Functions that operate on the model (i.e., change model state)
     def calc(self):
-        # read values from the GUI
-        t0=self.view.le_TLow.text()
-        T0=float(self.view.le_TLow.text())
-        P0=float(self.view.le_P0.text())
-        V0=float(self.view.le_V0.text())
-        TH=float(self.view.le_THigh.text())
-        CR=float(self.view.le_CR.text())
-        metric=self.view.rdo_Metric.isChecked()
+        w = self.widgets
+        T0 = float(w['le_TLow'].text())
+        P0 = float(w['le_P0'].text())
+        V0 = float(w['le_V0'].text())
+        TH = float(w['le_THigh'].text())
+        CR = float(w['le_CR'].text())
+        metric = w['rdo_Metric'].isChecked()
         self.set(T_0=T0, P_0=P0, V_0=V0, T_High=TH, ratio=CR, SI=metric)
 
-    def set(self, T_0=25.0, P_0=100.0, V_0=1.0, T_High=1500.0, ratio=6.0, SI=True):
-        """
-        Sets the initial state of the air and converts units from input
-        :param T_0: Initial temperature in absolute units (R or K)
-        :param P_0: Initial pressure in (atm or pa)
-        :param V_0: Initial volume in (ft^3 or m^3)
-        :param T_High: High temperature in (R or K)
-        :param ratio: Compression ratio
-        :param SI: boolean
-        :return: none
-        """
-        self.model.units.set(SI=SI)
-        self.model.T_initial=T_0 if SI else T_0/self.model.units.CF_T
-        self.model.p_initial=P_0 if SI else P_0/self.model.units.CF_P
-        self.model.T_high=T_High if SI else T_High/self.model.units.CF_T
-        self.model.V_Cylinder=V_0 if SI else V_0/self.model.units.CF_V
-        self.model.Ratio=ratio
-
-        #note that all state calculations are for molar values
-        self.model.State1=self.model.air.set(P=self.model.p_initial, T=self.model.T_initial, name='State 1 - BDC')
-        self.model.State2=self.model.air.set(v=self.model.State1.v/self.model.Ratio, s=self.model.State1.s, name='State 2 - TDC')
-        self.model.State3=self.model.air.set(T=self.model.T_high, v=self.model.State2.v, name='State 3 - TDC')
-        self.model.State4=self.model.air.set(v=self.model.State1.v, s=self.model.State3.s, name='State 4 - BDC')
-
-        self.model.air.n=self.model.V_Cylinder/self.model.air.State.v  # calcualte number of moles of air
-        self.model.air.m=self.model.air.n*self.model.air.MW
-
-        self.model.W_Compression = self.model.State2.u - self.model.State1.u
-        self.model.W_Power = self.model.State3.u - self.model.State4.u
-        self.model.Q_In = self.model.State3.u - self.model.State2.u
-        self.model.Q_Out = self.model.State4.u - self.model.State1.u
-
-        self.model.W_Cycle = self.model.W_Power - self.model.W_Compression
-        self.model.Eff = 100.0*self.model.W_Cycle / self.model.Q_In
-
-        self.buildDataForPlotting()
-        self.updateView()
+    def setWidgets(self, w=None):
+        self.widgets = w
+        self.view.lbl_THigh = w['lbl_THigh']
+        self.view.lbl_TLow = w['lbl_TLow']
+        self.view.lbl_P0 = w['lbl_P0']
+        self.view.lbl_V0 = w['lbl_V0']
+        self.view.lbl_CR = w['lbl_CR']
+        self.view.le_THigh = w['le_THigh']
+        self.view.le_TLow = w['le_TLow']
+        self.view.le_P0 = w['le_P0']
+        self.view.le_V0 = w['le_V0']
+        self.view.le_CR = w['le_CR']
+        self.view.le_T1 = w['le_T1']
+        self.view.le_T2 = w['le_T2']
+        self.view.le_T3 = w['le_T3']
+        self.view.le_T4 = w['le_T4']
+        self.view.lbl_T1Units = w['lbl_T1Units']
+        self.view.lbl_T2Units = w['lbl_T2Units']
+        self.view.lbl_T3Units = w['lbl_T3Units']
+        self.view.lbl_T4Units = w['lbl_T4Units']
+        self.view.le_Efficiency = w['le_Efficiency']
+        self.view.le_PowerStroke = w['le_PowerStroke']
+        self.view.le_CompressionStroke = w['le_CompressionStroke']
+        self.view.le_HeatAdded = w['le_HeatAdded']
+        self.view.lbl_PowerStrokeUnits = w['lbl_PowerStrokeUnits']
+        self.view.lbl_CompressionStrokeUnits = w['lbl_CompressionStrokeUnits']
+        self.view.lbl_HeatInUnits = w['lbl_HeatInUnits']
+        self.view.rdo_Metric = w['rdo_Metric']
+        self.view.cmb_Abcissa = w['cmb_Abcissa']
+        self.view.cmb_Ordinate = w['cmb_Ordinate']
+        self.view.chk_LogAbcissa = w['chk_LogAbcissa']
+        self.view.chk_LogOrdinate = w['chk_LogOrdinate']
+        self.view.ax = w['ax']
+        self.view.canvas = w['canvas']
 
     def buildDataForPlotting(self ):
         """
@@ -168,7 +163,7 @@ class ottoCycleController():
         return self.view.get_summary(self.model)
 
     def setWidgets(self, w=None):
-        tlow=w[6].text()
+
         [self.view.lbl_THigh, self.view.lbl_TLow, self.view.lbl_P0, self.view.lbl_V0, self.view.lbl_CR,
         self.view.le_THigh, self.view.le_TLow, self.view.le_P0, self.view.le_V0, self.view.le_CR,
         self.view.le_T1, self.view.le_T2, self.view.le_T3, self.view.le_T4,
@@ -178,7 +173,7 @@ class ottoCycleController():
         self.view.rdo_Metric, self.view.cmb_Abcissa, self.view.cmb_Ordinate,
         self.view.chk_LogAbcissa, self.view.chk_LogOrdinate, self.view.ax, self.view.canvas]=w
 
-        tlow=self.view.le_TLow.text()
+
         pass
 
     def updateView(self):

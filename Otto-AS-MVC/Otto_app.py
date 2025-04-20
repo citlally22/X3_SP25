@@ -1,95 +1,119 @@
-from Otto_GUI import Ui_Form
-from PyQt5 import uic
-import sys
 from PyQt5 import QtWidgets as qtw
+from PyQt5.QtWidgets import QApplication
+import sys
+from Otto_GUI import Ui_Form
 from Otto import ottoCycleController
-from Air import *
+from DieselController import DieselController
 
-#these imports are necessary for drawing a matplot lib graph on my GUI
-#no simple widget for this exists in QT Designer, so I have to add the widget in code.
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 class MainWindow(qtw.QWidget, Ui_Form):
     def __init__(self):
-        """MainWindow constructor"""
         super().__init__()
         self.setupUi(self)
-        # Main UI code goes here
-        self.calculated=False
+        self.setWindowTitle("Thermodynamic Cycle Calculator")
+        self.calculated = False
 
-        #creating a canvas to draw a figure for the otto cycle
-        self.figure=Figure(figsize=(8,8),tight_layout=True, frameon=True, facecolor='none')
+        # Add Matplotlib canvas to GUI
+        self.figure = Figure(figsize=(8, 8), tight_layout=True, facecolor='none')
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.ax = self.figure.add_subplot()
         self.main_VerticalLayout.addWidget(self.canvas)
 
-        #setting up some signals and slots
-        self.rdo_Metric.toggled.connect(self.setUnits) #triggered when the state of the radio button changes
-        self.btn_Calculate.clicked.connect(self.calcOtto)
-        self.cmb_Abcissa.currentIndexChanged.connect(self.doPlot)
-        self.cmb_Ordinate.currentIndexChanged.connect(self.doPlot)
-        self.chk_LogAbcissa.stateChanged.connect(self.doPlot)
-        self.chk_LogOrdinate.stateChanged.connect(self.doPlot)
-        # End main ui code
+        # Instantiate both controllers
+        self.ottoController = ottoCycleController()
+        self.dieselController = DieselController()
 
-        #create a otto controller object to work with later
-        self.controller=ottoCycleController()
-        someWidgets=[]
-        tlot=self.le_TLow.text()
-        someWidgets+=[self.lbl_THigh, self.lbl_TLow, self.lbl_P0, self.lbl_V0, self.lbl_CR]
-        someWidgets+=[self.le_THigh, self.le_TLow, self.le_P0, self.le_V0, self.le_CR]
-        someWidgets+=[self.le_T1, self.le_T2, self.le_T3, self.le_T4]
-        someWidgets+=[self.lbl_T1Units, self.lbl_T2Units, self.lbl_T3Units, self.lbl_T4Units]
-        someWidgets+=[self.le_PowerStroke, self.le_CompressionStroke, self.le_HeatAdded, self.le_Efficiency]
-        someWidgets+=[self.lbl_PowerStrokeUnits, self.lbl_CompressionStrokeUnits, self.lbl_HeatInUnits]
-        someWidgets+=[self.rdo_Metric, self.cmb_Abcissa, self.cmb_Ordinate]
-        someWidgets+=[self.chk_LogAbcissa, self.chk_LogOrdinate, self.ax, self.canvas]
-        #pass some widgets to the controller for both input and output
-        self.controller.setWidgets(w=someWidgets)
+        # Hook up combo box for switching cycles
+        self.cmb_Cycle.currentIndexChanged.connect(self.setCycle)
 
-        #show the form
+        # Hook up the Calculate button
+        self.btn_Calculate.clicked.connect(self.calculateCycle)
+
+        # Hook up log/axis plots
+        self.cmb_Abcissa.currentIndexChanged.connect(self.updatePlot)
+        self.cmb_Ordinate.currentIndexChanged.connect(self.updatePlot)
+        self.chk_LogAbcissa.stateChanged.connect(self.updatePlot)
+        self.chk_LogOrdinate.stateChanged.connect(self.updatePlot)
+
+        # Connect Metric toggle
+        self.rdo_Metric.toggled.connect(self.setUnits)
+
+        # Widgets used by both controllers
+        self.shared_widgets = {
+            'lbl_THigh': self.lbl_THigh, 'lbl_TLow': self.lbl_TLow,
+            'lbl_P0': self.lbl_P0, 'lbl_V0': self.lbl_V0, 'lbl_CR': self.lbl_CR,
+            'le_THigh': self.le_THigh, 'le_TLow': self.le_TLow, 'le_P0': self.le_P0,
+            'le_V0': self.le_V0, 'le_CR': self.le_CR,
+            'le_T1': self.le_T1, 'le_T2': self.le_T2, 'le_T3': self.le_T3, 'le_T4': self.le_T4,
+            'lbl_T1Units': self.lbl_T1Units, 'lbl_T2Units': self.lbl_T2Units,
+            'lbl_T3Units': self.lbl_T3Units, 'lbl_T4Units': self.lbl_T4Units,
+            'le_PowerStroke': self.le_PowerStroke, 'le_CompressionStroke': self.le_CompressionStroke,
+            'le_HeatAdded': self.le_HeatAdded, 'le_Efficiency': self.le_Efficiency,
+            'lbl_PowerStrokeUnits': self.lbl_PowerStrokeUnits,
+            'lbl_CompressionStrokeUnits': self.lbl_CompressionStrokeUnits,
+            'lbl_HeatInUnits': self.lbl_HeatInUnits,
+            'rdo_Metric': self.rdo_Metric, 'cmb_Abcissa': self.cmb_Abcissa,
+            'cmb_Ordinate': self.cmb_Ordinate,
+            'chk_LogAbcissa': self.chk_LogAbcissa, 'chk_LogOrdinate': self.chk_LogOrdinate,
+            'ax': self.ax, 'canvas': self.canvas
+        }
+
+        self.ottoController.setWidgets(self.shared_widgets)
+        self.dieselController.setWidgets(self.shared_widgets)
+
+        # Default cycle
+        self.current_cycle = 'Otto'
+        self.cmb_Cycle.setCurrentText("Otto")
+
         self.show()
 
     def clamp(self, val, low, high):
-        if self.isfloat(val):
-            val=float(val)
-            if val>high:
-                return float(high)
-            if val <low:
-                return float(low)
-            return val
-        return float(low)
+        try:
+            f = float(val)
+            return max(min(f, high), low)
+        except ValueError:
+            return float(low)
 
-    def isfloat(self,value):
-        '''
-        This function is a check to verify that a string can be converted to a float
-        :return:
-        '''
-        if value=='NaN':return False
+    def isfloat(self, value):
         try:
             float(value)
             return True
-        except ValueError:
+        except:
             return False
 
-    def doPlot(self):
-        self.controller.updateView()
-
     def setUnits(self):
-        self.controller.updateView()
+        if self.current_cycle == 'Otto':
+            self.ottoController.updateView()
 
-    def calcOtto(self):
-        '''
-        This is called when the calculate button is clicked
-        :return: nothing
-        '''
-        #calculate the cycle efficiency (and states 1,2,3,4)
-        self.controller.calc()
+    def setCycle(self):
+        self.current_cycle = self.cmb_Cycle.currentText()
 
-#if this module is being imported, this won't run. If it is the main module, it will run.
-if __name__== '__main__':
-    app = qtw.QApplication(sys.argv)
+    def updatePlot(self):
+        if self.current_cycle == 'Otto':
+            self.ottoController.updateView()
+        else:
+            # Diesel doesn't use cmb_Abcissa/cmb_Ordinate currently
+            pass
+
+    def calculateCycle(self):
+        inputs = {
+            'T_high': self.le_THigh.text(),
+            'T_low': self.le_TLow.text(),
+            'P0': self.le_P0.text(),
+            'V0': self.le_V0.text(),
+            'CR': self.le_CR.text(),
+            'rc': "2"  # default for Diesel; optionally add a cutoff field
+        }
+
+        if self.current_cycle == 'Otto':
+            self.ottoController.calc()
+        elif self.current_cycle == 'Diesel':
+            self.dieselController.calculate(inputs)
+
+# Run the app
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
     mw = MainWindow()
-    mw.setWindowTitle('Otto Cycle Calculator')
     sys.exit(app.exec())
