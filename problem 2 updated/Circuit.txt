@@ -1,0 +1,25 @@
+# ----------------------------------------
+# Node Definitions
+# ----------------------------------------
+# Define each node by giving it a name and (x, y) position for graphical representation.
+
+node A  100  200  # Top-left node connected to power source
+node B  300  200  # Top-right node connected to a wire and capacitor
+node C  300  300  # Mid-right node connected to inductor and capacitor
+node D  100  300  # Mid-left node connected to capacitor and wire
+node E  200  200  # Center-top node connected to resistor and inductor
+node F  200  300  # Center-bottom node connected to resistor and wire
+
+# ----------------------------------------
+# Component Definitions
+# ----------------------------------------
+# Define the electrical components and their connections between the nodes.
+# Format: [component type] [start node] [end node] [value (if applicable)]
+
+voltageSource A D 12    # DC voltage source from A to D with 12V
+wire         E B        # Ideal wire connecting node E to B (top right connection)
+wire         C F        # Ideal wire connecting node C to F (bottom right connection)
+resistor     E F 100    # Resistor of 100 ohms between E and F (vertical center)
+capacitor    B C 0.01   # Capacitor of 0.01 F between B and C (top right to mid right)
+inductor     A E 0.5    # Inductor of 0.5 H between A and E (top left to center top)
+wire         D F        # Ideal wire connecting node D to F (bottom left connection)
