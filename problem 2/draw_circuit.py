@@ -98,6 +98,7 @@ class CircuitWindow(QMainWindow):
             sys.exit(1)
 
 
+
 if __name__ == "__main__":
     print("Starting application...")
     app = QApplication(sys.argv)
