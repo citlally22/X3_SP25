@@ -6,24 +6,43 @@ from Otto_GUI import Ui_Form
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 
-class MainWindow(qtw.QWidget, Ui_Form):
-    def __init__(self):
-        super().__init__()
-        self.setupUi(self)
-        self.setWindowTitle("Thermodynamic Cycle Calculator")
-        self.calculated = False
 
-        # Add Matplotlib canvas to GUI
+class MainWindow(qtw.QWidget, Ui_Form):
+    """Main GUI window for the Thermodynamic Cycle Calculator.
+
+    Integrates Otto and Diesel cycle controllers to perform calculations and display
+    results and plots. Manages user inputs, unit systems, and plot updates through a
+    PyQt5 interface.
+
+    Attributes:
+        calculated (bool): Tracks whether a calculation has been successfully performed.
+        figure (matplotlib.figure.Figure): Matplotlib figure for plotting.
+        canvas (FigureCanvasQTAgg): Matplotlib canvas for rendering plots.
+        ax (matplotlib.axes.Axes): Matplotlib axes for plotting.
+        ottoController (ottoCycleController): Controller for Otto cycle calculations.
+        dieselController (DieselController): Controller for Diesel cycle calculations.
+        shared_widgets (dict): Dictionary mapping widget names to Qt objects.
+        current_cycle (str): Current cycle type ('Otto' or 'Diesel').
+    """
+
+    def __init__(self):
+        """Initializes the main window, sets up the GUI, and configures controllers."""
+        super().__init__()
+        self.setupUi(self)  # Set up UI from Otto_GUI
+        self.setWindowTitle("Thermodynamic Cycle Calculator")
+        self.calculated = False  # Track calculation status
+
+        # Initialize Matplotlib canvas for plotting
         self.figure = Figure(figsize=(8, 8), tight_layout=True, facecolor='none')
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.ax = self.figure.add_subplot()
-        self.main_VerticalLayout.addWidget(self.canvas)
+        self.main_VerticalLayout.addWidget(self.canvas)  # Add canvas to layout
 
         # Instantiate controllers
-        self.ottoController = ottoCycleController()
+        self.ottoController = ottoCycleController(ax=self.ax)
         self.dieselController = DieselController()
 
-        # Widgets used by controllers
+        # Define shared widgets for both controllers
         self.shared_widgets = {
             'lbl_THigh': self.lbl_THigh, 'lbl_TLow': self.lbl_TLow,
             'lbl_P0': self.lbl_P0, 'lbl_V0': self.lbl_V0, 'lbl_CR': self.lbl_CR,
@@ -43,7 +62,7 @@ class MainWindow(qtw.QWidget, Ui_Form):
             'ax': self.ax, 'canvas': self.canvas
         }
 
-        # Set widgets for controllers
+        # Assign widgets to controllers
         self.ottoController.setWidgets(self.shared_widgets)
         self.dieselController.setWidgets(self.shared_widgets)
 
@@ -56,65 +75,67 @@ class MainWindow(qtw.QWidget, Ui_Form):
         self.chk_LogOrdinate.stateChanged.connect(self.updatePlot)
         self.rdo_Metric.toggled.connect(self.setUnits)
 
-        # Default cycle
+        # Set default cycle
         self.current_cycle = 'Otto'
         self.cmb_Cycle.setCurrentText("Otto")
 
-        self.show()
+        self.show()  # Display the window
 
     def setCycle(self):
-        self.current_cycle = self.cmb_Cycle.currentText()
+        """Updates the current cycle type based on user selection.
+
+        Triggers plot update if a calculation has been performed.
+        """
+        self.current_cycle = self.cmb_Cycle.currentText()  # Update cycle type
         if self.calculated:
-            self.updatePlot()
+            self.updatePlot()  # Refresh plot for new cycle
 
     def updatePlot(self):
+        """Updates the plot based on the current cycle and plot settings.
+
+        Rebuilds plotting data and updates the view for the selected cycle.
+        """
         if not self.calculated:
-            return
-        self.ax.clear()
+            return  # Skip if no calculation has been performed
+
+        self.ax.clear()  # Clear previous plot
         try:
             if self.current_cycle == 'Otto':
-                self.ottoController.buildDataForPlotting()
-                self.ottoController.updateView()
+                self.ottoController.buildDataForPlotting()  # Generate plotting data
+                self.ottoController.updateView()  # Update Otto plot
             else:
-                # DieselController may not have buildDataForPlotting, so rely on updateView
-                try:
-                    self.dieselController.updateView()
-                except AttributeError as e:
-                    if 'updateUnits' in str(e):
-                        # Skip updateUnits error and proceed
-                        pass
-                    else:
-                        raise e
+                self.dieselController.updateView()  # Update Diesel plot (no buildDataForPlotting)
         except Exception as e:
             qtw.QMessageBox.critical(self, "Plot Error", f"Failed to update plot: {str(e)}")
         finally:
-            self.canvas.draw()
+            self.canvas.draw()  # Redraw canvas
 
     def calculateCycle(self):
+        """Performs calculations for the selected cycle based on user inputs.
+
+        Validates inputs, triggers the appropriate controller's calculation, and updates the view.
+        """
+        # Collect inputs from GUI
         inputs = {
             'T_high': self.le_THigh.text(),
             'T_low': self.le_TLow.text(),
             'P0': self.le_P0.text(),
             'V0': self.le_V0.text(),
             'CR': self.le_CR.text(),
-            'rc': "2"
+            'rc': "2"  # Default cutoff ratio for Diesel
         }
         try:
             if self.current_cycle == 'Otto':
-                self.ottoController.calc()
-                self.ottoController.buildDataForPlotting()
-                self.ottoController.updateView()
+                self.ottoController.calc()  # Run Otto calculation
+                self.ottoController.buildDataForPlotting()  # Prepare plotting data
+                self.ottoController.updateView()  # Update view
             elif self.current_cycle == 'Diesel':
-                self.dieselController.calculate(inputs)
-                try:
-                    self.dieselController.updateView()
-                except AttributeError as e:
-                    if 'updateUnits' in str(e):
-                        # Skip updateUnits error and proceed
-                        pass
-                    else:
-                        raise e
+                self.dieselController.calculate(inputs)  # Run Diesel calculation
+                self.dieselController.updateView()  # Update view
+            self.calculated = True  # Mark calculation as successful
+            self.updatePlot()  # Refresh plot
         except Exception as e:
+            # Display detailed error message with inputs
             error_msg = (
                 f"Calculation failed for {self.current_cycle} cycle.\n"
                 f"Inputs: T_high={inputs['T_high']}, T_low={inputs['T_low']}, "
@@ -122,27 +143,36 @@ class MainWindow(qtw.QWidget, Ui_Form):
                 f"Error: {str(e)}"
             )
             qtw.QMessageBox.critical(self, "Calculation Error", error_msg)
-            self.calculated = False
+            self.calculated = False  # Reset calculation status
             return
-        self.calculated = True
-        self.updatePlot()
 
     def setUnits(self):
-        self.ottoController.model.units.set(SI=self.rdo_Metric.isChecked())
-        self.dieselController.model.units.set(SI=self.rdo_Metric.isChecked())
+        """Updates the unit system for both controllers and refreshes the view.
+
+        Sets SI or English units based on the metric radio button and updates the GUI.
+        """
+        is_metric = self.rdo_Metric.isChecked()
         try:
+            # Update unit systems for both controllers
+            self.ottoController.model.units.set(SI=is_metric)
+            # DieselController's model may not have a units object, so skip
+            if hasattr(self.dieselController.model, 'units'):
+                self.dieselController.model.units.set(SI=is_metric)
+
+            # Update view units for the current cycle
             if self.current_cycle == 'Otto':
-                if hasattr(self.ottoController, 'updateUnits'):
-                    self.ottoController.updateUnits()
+                self.ottoController.view.updateDisplayWidgets(Model=self.ottoController.model)
             else:
-                if hasattr(self.dieselController, 'updateUnits'):
-                    self.dieselController.updateUnits()
+                self.dieselController.view.updateUnits(is_metric)
         except Exception as e:
             qtw.QMessageBox.critical(self, "Units Error", f"Failed to update units: {str(e)}")
+
+        # Refresh plot if a calculation has been performed
         if self.calculated:
             self.updatePlot()
 
+
 if __name__ == '__main__':
-    app = qtw.QApplication(sys.argv)
-    window = MainWindow()
-    sys.exit(app.exec_())
+    app = qtw.QApplication(sys.argv)  # Initialize Qt application
+    window = MainWindow()  # Create main window
+    sys.exit(app.exec_())  # Run Qt event loop
